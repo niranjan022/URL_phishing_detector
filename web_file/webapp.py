@@ -1,33 +1,33 @@
 import streamlit as st
 import joblib
 import re
+import os
+import requests
 
-# Load the trained model
-model = joblib.load("RF_model.pkl")
 
-# (Optional) Define feature extraction function
+
 def extract_features(url):
     features = []
     url_str = str(url)
-    # Length of URL
+    
     features.append(len(url_str))
-    # Special character counts
+   
     specials = ['@','?','-','=','.','#','%','+','$','!','*',',','//']
     for s in specials:
         features.append(url_str.count(s))
-    # abnormal_url
+   
     from urllib.parse import urlparse
     hostname = str(urlparse(url_str).hostname)
     abnormal = 1 if re.search(hostname, url_str) else 0
     features.append(abnormal)
-    # https
+   
     scheme = urlparse(url_str).scheme
     features.append(1 if scheme == 'https' else 0)
-    # digits
+   
     features.append(sum(c.isdigit() for c in url_str))
-    # letters
+  
     features.append(sum(c.isalpha() for c in url_str))
-    # Shortining_Service
+  
     shortener_pattern = (
         r'bit\.ly|goo\.gl|shorte\.st|go2l\.ink|x\.co|ow\.ly|t\.co|tinyurl|tr\.im|is\.gd|cli\.gs|'
         r'yfrog\.com|migre\.me|ff\.im|tiny\.cc|url4\.eu|twit\.ac|su\.pr|twurl\.nl|snipurl\.com|'
@@ -39,7 +39,7 @@ def extract_features(url):
         r'tr\.im|link\.zip\.net'
     )
     features.append(1 if re.search(shortener_pattern, url_str) else 0)
-    # having_ip_address
+    
     ip_pattern = (
         r'(([01]?\d\d?|2[0-4]\d|25[0-5])\.([01]?\d\d?|2[0-4]\d|25[0-5])\.([01]?\d\d?|2[0-4]\d|25[0-5])\.'
         r'([01]?\d\d?|2[0-4]\d|25[0-5]))|'
@@ -54,23 +54,22 @@ def extract_features(url):
 st.title("🔐 Phishing URL Detector")
 st.write("Enter a URL to check if it’s **Phishing** or **Safe**.")
 
-# Input from user
+
+
+MODEL_URL = "https://drive.google.com/uc?export=download&id=1mUH2pSrZ94NwwOrBZ4jhh5-OFyVEg3fh"
+MODEL_PATH = "RF_model.pkl"
+
+if not os.path.exists(MODEL_PATH):
+    with st.spinner("Downloading model..."):
+        r = requests.get(MODEL_URL)
+        with open(MODEL_PATH, "wb") as f:
+            f.write(r.content)
+
+model = joblib.load(MODEL_PATH)
+
 url_input = st.text_input("Enter URL:")
 
-# if st.button("Check URL"):
-#     if url_input.strip() == "":
-#         st.warning("Please enter a URL")
-#     else:
-#         # Extract features & reshape for prediction
-#         features = extract_features(url_input)
-#         prediction = model.predict([features])[0]
-#         print(prediction)
-#         if prediction == 1:  # Assuming 1 = phishing
-#             st.error("⚠️ This URL looks **Phishing**")
-#         else:
-#             st.success("✅ This URL looks **Safe**")
 
-# ...existing code...
 
 category_map = {
     0: ("Benign", st.success, "✅ This URL looks **Benign** (Safe)"),
@@ -87,5 +86,4 @@ if st.button("Check URL"):
         features = extract_features(clean_url)
         prediction = model.predict([features])[0]
         label, color_func, message = category_map.get(prediction, ("Unknown", st.info, "❓ Unknown Category"))
-        print(prediction)
         color_func(message)
